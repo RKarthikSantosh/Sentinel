@@ -25,7 +25,7 @@ class DataPreprocessing:
             inplace=True
         )
 
-        # Remove difficulty score column
+        # Remove difficulty score
         df.drop(
             columns=[42],
             inplace=True
@@ -44,7 +44,7 @@ class DataPreprocessing:
         # Categorical columns
         categorical_cols = [1, 2, 3]
 
-        # Encode categorical features
+        # Store encoders
         feature_encoders = {}
 
         for col in categorical_cols:
@@ -57,12 +57,10 @@ class DataPreprocessing:
 
             feature_encoders[col] = encoder
 
-        # Encode target labels
+        # Encode target
         target_encoder = LabelEncoder()
 
-        y = target_encoder.fit_transform(
-            y
-        )
+        y = target_encoder.fit_transform(y)
 
         # Train Test Split
         X_train, X_test, y_train, y_test = train_test_split(
@@ -73,7 +71,7 @@ class DataPreprocessing:
             stratify=y
         )
 
-        # Feature Scaling
+        # Scaling
         scaler = StandardScaler()
 
         X_train = scaler.fit_transform(
@@ -84,15 +82,22 @@ class DataPreprocessing:
             X_test
         )
 
-        # Save preprocessing objects
+        # Save scaler
         joblib.dump(
             scaler,
             "models/scaler.pkl"
         )
 
+        # Save target encoder
         joblib.dump(
             target_encoder,
             "models/target_encoder.pkl"
+        )
+
+        # NEW: Save feature encoders
+        joblib.dump(
+            feature_encoders,
+            "models/feature_encoders.pkl"
         )
 
         print("\nPreprocessing Completed Successfully")
@@ -111,7 +116,7 @@ class DataPreprocessing:
             X_train,
             X_test,
             y_train,
-            y_test,
+            y_test
         )
 
 
