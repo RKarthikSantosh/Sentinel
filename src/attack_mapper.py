@@ -21,3 +21,9 @@ ATTACK_DESCRIPTIONS = {
     "nmap":
         "Network Mapping Activity"
 }
+def get_attack_description(attack_name):
+
+    return ATTACK_DESCRIPTIONS.get(
+        attack_name,
+        attack_name
+    )

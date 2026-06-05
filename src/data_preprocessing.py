@@ -1,5 +1,6 @@
 import pandas as pd
 import joblib
+import os
 
 from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import StandardScaler
@@ -13,38 +14,37 @@ class DataPreprocessing:
 
     def preprocess(self):
 
-        # Load dataset
+        # Load Dataset
         df = pd.read_csv(
             self.filepath,
             header=None
         )
 
-        # Rename target column
+        # Rename Target Column
         df.rename(
             columns={41: "label"},
             inplace=True
         )
 
-        # Remove difficulty score
-        df.drop(
-            columns=[42],
-            inplace=True
-        )
+        # Remove Difficulty Score
+        if 42 in df.columns:
+            df.drop(
+                columns=[42],
+                inplace=True
+            )
 
-        print("Dataset Shape:")
-        print(df.shape)
+        print("Dataset Shape:", df.shape)
 
-        # Features and Target
+        # Features & Target
         X = df.drop(
             columns=["label"]
         )
 
         y = df["label"]
 
-        # Categorical columns
+        # Categorical Columns
         categorical_cols = [1, 2, 3]
 
-        # Store encoders
         feature_encoders = {}
 
         for col in categorical_cols:
@@ -57,7 +57,7 @@ class DataPreprocessing:
 
             feature_encoders[col] = encoder
 
-        # Encode target
+        # Target Encoding
         target_encoder = LabelEncoder()
 
         y = target_encoder.fit_transform(y)
@@ -74,36 +74,42 @@ class DataPreprocessing:
         # Scaling
         scaler = StandardScaler()
 
-        X_train = scaler.fit_transform(
-            X_train
+        X_train = scaler.fit_transform(X_train)
+
+        X_test = scaler.transform(X_test)
+
+        # Create models folder
+        os.makedirs(
+            "models",
+            exist_ok=True
         )
 
-        X_test = scaler.transform(
-            X_test
-        )
+        print("\nSaving Files...")
 
-        # Save scaler
+        # Save Scaler
         joblib.dump(
             scaler,
             "models/scaler.pkl"
         )
 
-        # Save target encoder
+        # Save Target Encoder
         joblib.dump(
             target_encoder,
             "models/target_encoder.pkl"
         )
 
-        # NEW: Save feature encoders
+        # Save Feature Encoders
         joblib.dump(
             feature_encoders,
             "models/feature_encoders.pkl"
         )
 
+        print("feature_encoders.pkl saved successfully")
+
         print("\nPreprocessing Completed Successfully")
 
         print(
-            "\nX_train Shape:",
+            "X_train Shape:",
             X_train.shape
         )
 
@@ -126,6 +132,4 @@ if __name__ == "__main__":
         "data/raw/KDDTrain+.txt"
     )
 
-    X_train, X_test, y_train, y_test = (
-        preprocessing.preprocess()
-    )
+    preprocessing.preprocess()
