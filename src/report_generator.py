@@ -1,7 +1,7 @@
 import os
 
 from dotenv import load_dotenv
-import google.generativeai as genai
+from google import genai
 
 from attack_mapper import get_attack_description
 
@@ -12,12 +12,8 @@ from attack_mapper import get_attack_description
 
 load_dotenv()
 
-genai.configure(
+client = genai.Client(
     api_key=os.getenv("GEMINI_API_KEY")
-)
-
-model = genai.GenerativeModel(
-    "gemini-1.5-flash"
 )
 
 
@@ -62,12 +58,14 @@ The report must contain:
 
 Use simple language.
 Avoid technical jargon.
+Do NOT use any markdown formatting (no asterisks, no hashtags). Output plain text only.
 """
 
     try:
 
-        response = model.generate_content(
-            prompt
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
         )
 
         return response.text
