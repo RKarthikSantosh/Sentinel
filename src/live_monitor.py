@@ -58,11 +58,49 @@ def extract_features(packet):
         "features_df": df
     }
 
+def capture_packets_simulated(packet_count, df_mock):
+    """
+    Simulates packet capture by reading rows from a dataframe.
+    Useful for Windows environments lacking Npcap or Admin privileges.
+    """
+    import random
+    import time
+    
+    captured_data = []
+    # Take random rows to simulate live traffic
+    sample_df = df_mock.sample(n=packet_count, replace=True)
+    
+    for _, row in sample_df.iterrows():
+        # Add slight delay to simulate network latency
+        time.sleep(random.uniform(0.01, 0.1))
+        
+        # Simulate IPs
+        src_ip = f"192.168.1.{random.randint(2, 254)}"
+        dst_ip = f"10.0.0.{random.randint(1, 100)}"
+        
+        # Try to infer protocol from column 1 if it's encoded or string
+        protocol = str(row.iloc[1]) if isinstance(row.iloc[1], str) else "tcp"
+        
+        # We package the exact KDDTrain+/Test+ row as the features_df
+        features_df = pd.DataFrame([row.values])
+        
+        data = {
+            "src_ip": src_ip,
+            "dst_ip": dst_ip,
+            "protocol": protocol,
+            "features_df": features_df
+        }
+        captured_data.append(data)
+        
+    return captured_data
+
 def capture_packets(packet_count):
     """
     Captures a set number of packets and yields them.
     This runs synchronously.
     """
+    from scapy.all import conf
+    
     captured_data = []
     
     def packet_handler(packet):
@@ -70,5 +108,6 @@ def capture_packets(packet_count):
         if data is not None:
             captured_data.append(data)
             
-    sniff(prn=packet_handler, store=0, count=packet_count)
+    # L2socket=conf.L3socket attempts Layer 3 sniffing without WinPcap
+    sniff(prn=packet_handler, store=0, count=packet_count, L2socket=conf.L3socket)
     return captured_data

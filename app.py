@@ -7,7 +7,7 @@ import os
 sys.path.append(os.path.abspath('src'))
 from predict import predict_attack
 from report_generator import generate_report
-from live_monitor import capture_packets
+from live_monitor import capture_packets, capture_packets_simulated
 
 st.set_page_config(page_title="Intrusion Detection SOC Dashboard", layout="wide")
 
@@ -62,11 +62,24 @@ else:
     packet_count = st.slider("Number of packets to capture per batch", min_value=10, max_value=500, value=50)
     
     if st.button("Start Live Capture"):
+        captured_data = []
         with st.spinner(f"Capturing {packet_count} packets..."):
-            captured_data = capture_packets(packet_count)
-            
-        st.success(f"Captured {len(captured_data)} valid IP packets.")
+            try:
+                captured_data = capture_packets(packet_count)
+                st.success(f"Captured {len(captured_data)} valid IP packets natively.")
+            except Exception as e:
+                # Catch Scapy Permission/Npcap errors on Windows
+                st.warning("⚠️ Native Scapy capture requires Npcap or Administrator privileges on Windows. Switching to Live Simulation Mode using historical logs...")
+                try:
+                    mock_df = pd.read_csv("data/raw/KDDTest+.txt", header=None)
+                    captured_data = capture_packets_simulated(packet_count, mock_df)
+                    st.success(f"Simulated {len(captured_data)} live packets from firewall logs.")
+                except Exception as ex:
+                    st.error(f"Failed to run simulation: {ex}")
         
+        if not captured_data:
+            st.stop()
+
         # Analyze packets
         threats_found = []
         normal_count = 0
