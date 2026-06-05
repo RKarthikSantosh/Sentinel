@@ -112,8 +112,6 @@ class DataPreprocessing:
             X_test,
             y_train,
             y_test,
-            scaler,
-            target_encoder
         )
 
 
