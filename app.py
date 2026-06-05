@@ -6,10 +6,22 @@ import os
 # Add src to path so we can import our modules
 sys.path.append(os.path.abspath('src'))
 from predict import predict_attack
-from report_generator import generate_report
+from report_generator import generate_report, report_to_pdf_bytes
 from live_monitor import capture_packets, capture_packets_simulated
 
 st.set_page_config(page_title="Intrusion Detection SOC Dashboard", layout="wide")
+
+
+def display_incident_report(report, attack_name):
+    st.subheader("Incident Report")
+    st.markdown(report)
+    st.download_button(
+        label="Download Report (PDF)",
+        data=report_to_pdf_bytes(report),
+        file_name=f"security_incident_report_{attack_name}.pdf",
+        mime="application/pdf",
+        type="primary",
+    )
 
 st.title("🛡️ AI-Driven Intrusion Detection Dashboard")
 st.markdown("Dual-mode AI-powered Intrusion Detection System supporting both historical log analysis and real-time network traffic monitoring.")
@@ -42,15 +54,14 @@ if mode == "Mode 1: Historical CSV Log Analysis":
                 st.warning(f"Threat Level: **{result['threat_level']}**")
                 
                 if result['attack_name'] != 'normal':
-                    with st.spinner("Generating AI Security Report..."):
+                    with st.spinner("Generating Security Report..."):
                         report = generate_report(
                             attack_name=result['attack_name'],
                             confidence=result['confidence'],
                             risk_score=result['risk_score'],
                             threat_level=result['threat_level']
                         )
-                    st.subheader("Incident Report")
-                    st.text_area("Generated Report", report, height=400)
+                    display_incident_report(report, result["attack_name"])
                     
         except Exception as e:
             st.error(f"Error processing file: {e}")
@@ -125,6 +136,6 @@ else:
                     risk_score=highest_risk['Risk'],
                     threat_level="Critical" if highest_risk['Risk'] > 75 else "High"
                 )
-            st.text_area("Generated Report", report, height=400)
+            display_incident_report(report, highest_risk["Attack Type"])
         else:
             st.success("✅ Architecture is secure. No intrusions detected in this capture batch.")
