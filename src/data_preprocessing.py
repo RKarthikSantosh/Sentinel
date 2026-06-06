@@ -6,6 +6,13 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 
+# Resolve the repo root relative to this file (src/../ == repo root)
+_SRC_DIR   = os.path.dirname(os.path.abspath(__file__))
+_REPO_ROOT = os.path.abspath(os.path.join(_SRC_DIR, ".."))
+
+def _repo_path(*parts):
+    """Return an absolute path anchored at the repo root."""
+    return os.path.join(_REPO_ROOT, *parts)
 
 # --------------------------------------------------
 # Column names from the NSL-KDD feature spec
@@ -43,20 +50,21 @@ class DataPreprocessing:
 
     def __init__(
         self,
-        train_path="data/raw/KDDTrain+.txt",
+        train_path=None,
         extra_train_paths=None,
     ):
         """
         Parameters
         ----------
-        train_path : str
+        train_path : str | None
             Path to the primary training file (KDDTrain+.txt).
+            Defaults to <repo_root>/data/raw/KDDTrain+.txt.
         extra_train_paths : list[str] | None
             Additional .txt files whose rows are appended to the
             training set before fitting (e.g. KDDTrain+_20Percent.txt).
             Duplicates are dropped automatically.
         """
-        self.train_path = train_path
+        self.train_path = train_path or _repo_path("data", "raw", "KDDTrain+.txt")
         self.extra_train_paths = extra_train_paths or []
 
     # --------------------------------------------------
@@ -121,10 +129,11 @@ class DataPreprocessing:
         print(f"X_val   : {X_val.shape}")
 
         # 7. Persist artefacts
-        os.makedirs("models", exist_ok=True)
-        joblib.dump(scaler,           "models/scaler.pkl")
-        joblib.dump(target_encoder,   "models/target_encoder.pkl")
-        joblib.dump(feature_encoders, "models/feature_encoders.pkl")
+        models_dir = _repo_path("models")
+        os.makedirs(models_dir, exist_ok=True)
+        joblib.dump(scaler,           os.path.join(models_dir, "scaler.pkl"))
+        joblib.dump(target_encoder,   os.path.join(models_dir, "target_encoder.pkl"))
+        joblib.dump(feature_encoders, os.path.join(models_dir, "feature_encoders.pkl"))
         print("\nArtefacts saved -> models/")
 
         return X_train, X_val, y_train, y_val, scaler, target_encoder
@@ -168,9 +177,8 @@ class DataPreprocessing:
 
 if __name__ == "__main__":
     pp = DataPreprocessing(
-        train_path="data/raw/KDDTrain+.txt",
         extra_train_paths=[
-            "NSL-KDD-Dataset-master/KDDTrain+_20Percent.txt",
+            _repo_path("NSL-KDD-Dataset-master", "KDDTrain+_20Percent.txt"),
         ],
     )
     pp.preprocess()

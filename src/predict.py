@@ -6,23 +6,21 @@ from attack_mapper import get_attack_description
 from risk_scoring import calculate_risk
 from calibration import TemperatureScaledRF  # noqa: F401 — needed for pickle
 
+# Resolve paths relative to this file so they work regardless of CWD
+_SRC_DIR    = os.path.dirname(os.path.abspath(__file__))
+_MODELS_DIR = os.path.join(_SRC_DIR, "..", "models")
+
+def _model_path(filename):
+    return os.path.join(_MODELS_DIR, filename)
 
 # Load saved objects — prefer the dedicated Random Forest model
-_rf_path = "models/rf_model.pkl"
-_fallback_path = "models/intrusion_model.pkl"
+_rf_path       = _model_path("rf_model.pkl")
+_fallback_path = _model_path("intrusion_model.pkl")
 model = joblib.load(_rf_path if os.path.exists(_rf_path) else _fallback_path)
 
-scaler = joblib.load(
-    "models/scaler.pkl"
-)
-
-target_encoder = joblib.load(
-    "models/target_encoder.pkl"
-)
-
-feature_encoders = joblib.load(
-    "models/feature_encoders.pkl"
-)
+scaler          = joblib.load(_model_path("scaler.pkl"))
+target_encoder  = joblib.load(_model_path("target_encoder.pkl"))
+feature_encoders = joblib.load(_model_path("feature_encoders.pkl"))
 
 
 def predict_attack(df):

@@ -7,7 +7,7 @@ from sklearn.tree import DecisionTreeClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report
 
-from data_preprocessing import DataPreprocessing
+from data_preprocessing import DataPreprocessing, _repo_path
 from calibration import TemperatureScaledRF
 
 
@@ -17,9 +17,8 @@ from calibration import TemperatureScaledRF
 #    - Extra     : KDDTrain+_20Percent.txt (subset — dupes auto-dropped)
 # --------------------------------------------------
 preprocessing = DataPreprocessing(
-    train_path="data/raw/KDDTrain+.txt",
     extra_train_paths=[
-        "NSL-KDD-Dataset-master/KDDTrain+_20Percent.txt",
+        _repo_path("NSL-KDD-Dataset-master", "KDDTrain+_20Percent.txt"),
     ],
 )
 
@@ -29,7 +28,7 @@ X_train, X_val, y_train, y_val, scaler, target_encoder = (
 
 # Load the fitted encoders for test-set evaluation
 import joblib as _jl
-feature_encoders = _jl.load("models/feature_encoders.pkl")
+feature_encoders = _jl.load(_repo_path("models", "feature_encoders.pkl"))
 
 
 # --------------------------------------------------
@@ -103,8 +102,8 @@ print(f"  Preds with P == 1.00: {(cal_max_probs >= 1.0 - 1e-9).sum()} / {len(cal
 # 5. Evaluate on BOTH NSL-KDD held-out test sets
 # --------------------------------------------------
 test_sets = [
-    ("KDDTest+ (full)",     "data/raw/KDDTest+.txt"),
-    ("KDDTest-21 (harder)", "NSL-KDD-Dataset-master/KDDTest-21.txt"),
+    ("KDDTest+ (full)",     _repo_path("data", "raw", "KDDTest+.txt")),
+    ("KDDTest-21 (harder)", _repo_path("NSL-KDD-Dataset-master", "KDDTest-21.txt")),
 ]
 
 print("\n" + "=" * 55)
@@ -133,9 +132,9 @@ for label, path in test_sets:
 # --------------------------------------------------
 # 6. Save models
 # --------------------------------------------------
-joblib.dump(best_model, "models/intrusion_model.pkl")
+joblib.dump(best_model, _repo_path("models", "intrusion_model.pkl"))
 print(f"\nBest model saved  -> models/intrusion_model.pkl")
 print(f"Best Val Accuracy -> {best_accuracy:.4f}")
 
-joblib.dump(calibrated_rf, "models/rf_model.pkl")
-print("Calibrated Random Forest saved -> models/rf_model.pkl")
+joblib.dump(calibrated_rf, _repo_path("models", "rf_model.pkl"))
+print("Calibrated Random Forest saved -> models/rf_model.pkl")

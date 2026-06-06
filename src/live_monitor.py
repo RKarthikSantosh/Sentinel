@@ -1,13 +1,16 @@
 import pandas as pd
-from scapy.all import sniff, IP, TCP, UDP, ICMP
-import queue
+
 
 def extract_features(packet):
     """
     Extract basic features from a Scapy packet and map them
     to the 41-feature format expected by the NSL-KDD model.
+    Scapy is imported lazily so the module loads on Streamlit Cloud
+    even when packet capture is unavailable.
     """
-    if not IP in packet:
+    from scapy.all import IP, TCP, UDP, ICMP  # lazy import
+
+    if IP not in packet:
         return None
 
     # Initialize a row of zeros matching the KDD 41 features
@@ -46,7 +49,7 @@ def extract_features(packet):
 
     # 4 - src_bytes
     features[4] = len(packet[IP].payload)
-    
+
     # 5 - dst_bytes (0 for outgoing single packet)
     features[5] = 0
 
@@ -58,32 +61,28 @@ def extract_features(packet):
         "features_df": df
     }
 
+
 def capture_packets_simulated(packet_count, df_mock):
     """
     Simulates packet capture by reading rows from a dataframe.
-    Useful for Windows environments lacking Npcap or Admin privileges.
+    Useful for cloud environments lacking Npcap or admin privileges.
     """
     import random
     import time
-    
+
     captured_data = []
-    # Take random rows to simulate live traffic
     sample_df = df_mock.sample(n=packet_count, replace=True)
-    
+
     for _, row in sample_df.iterrows():
-        # Add slight delay to simulate network latency
         time.sleep(random.uniform(0.01, 0.1))
-        
-        # Simulate IPs
+
         src_ip = f"192.168.1.{random.randint(2, 254)}"
         dst_ip = f"10.0.0.{random.randint(1, 100)}"
-        
-        # Try to infer protocol from column 1 if it's encoded or string
+
         protocol = str(row.iloc[1]) if isinstance(row.iloc[1], str) else "tcp"
-        
-        # We package the exact KDDTrain+/Test+ row as the features_df
+
         features_df = pd.DataFrame([row.values])
-        
+
         data = {
             "src_ip": src_ip,
             "dst_ip": dst_ip,
@@ -91,23 +90,25 @@ def capture_packets_simulated(packet_count, df_mock):
             "features_df": features_df
         }
         captured_data.append(data)
-        
+
     return captured_data
+
 
 def capture_packets(packet_count):
     """
-    Captures a set number of packets and yields them.
-    This runs synchronously.
+    Captures a set number of live packets using Scapy.
+    Requires Npcap (Windows) or libpcap (Linux/macOS) and elevated privileges.
+    Scapy is imported lazily so module-level import never fails on Streamlit Cloud.
     """
-    from scapy.all import conf
-    
+    from scapy.all import sniff, conf  # lazy import
+
     captured_data = []
-    
+
     def packet_handler(packet):
         data = extract_features(packet)
         if data is not None:
             captured_data.append(data)
-            
-    # L2socket=conf.L3socket attempts Layer 3 sniffing without WinPcap
+
+    # L3socket avoids needing WinPcap/Npcap on some Windows setups
     sniff(prn=packet_handler, store=0, count=packet_count, L2socket=conf.L3socket)
     return captured_data

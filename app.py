@@ -3,11 +3,12 @@ import pandas as pd
 import sys
 import os
 
-# Add src to path so we can import our modules
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+# Anchor src/ path to app.py location — works regardless of CWD on Streamlit Cloud
+_APP_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(_APP_DIR, 'src'))
+
 from predict import predict_attack
 from report_generator import generate_report, report_to_pdf_bytes
-from live_monitor import capture_packets, capture_packets_simulated
 from data_preprocessing import FEATURE_NAMES
 
 st.set_page_config(page_title="Intrusion Detection SOC Dashboard", layout="wide")
@@ -85,10 +86,11 @@ else:
     if st.button("▶ Start Monitoring", type="primary"):
 
         # Load firewall log source (KDDTest+ as stand-in for real firewall logs)
+        _data_path = os.path.join(_APP_DIR, "data", "raw", "KDDTest+.txt")
         try:
-            log_df = pd.read_csv("data/raw/KDDTest+.txt", header=None)
+            log_df = pd.read_csv(_data_path, header=None)
         except FileNotFoundError:
-            st.error("Firewall log source not found at data/raw/KDDTest+.txt")
+            st.error(f"Firewall log source not found at {_data_path}")
             st.stop()
 
         sample_df = log_df.sample(n=min(log_count, len(log_df)), replace=True).reset_index(drop=True)
