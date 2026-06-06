@@ -25,28 +25,35 @@ feature_encoders = joblib.load(
 
 
 def predict_attack(df):
+    df = df.copy()
 
-    # Remove label and difficulty score
+    # --- Normalise column names ---
+    # Input may come in as integer-indexed (CSV upload) or named (live monitor).
+    # Rename integer columns to feature names so the rest of the function is uniform.
+    int_to_name = {
+        0: "duration", 1: "protocol_type", 2: "service", 3: "flag",
+        41: "label", 42: "difficulty",
+    }
+    df.rename(columns={k: v for k, v in int_to_name.items() if k in df.columns},
+              inplace=True)
 
-    if 41 in df.columns:
-        df.drop(columns=[41], inplace=True)
+    # Drop label / difficulty columns if present
+    for col in ("label", "difficulty"):
+        if col in df.columns:
+            df.drop(columns=[col], inplace=True)
 
-    if 42 in df.columns:
-        df.drop(columns=[42], inplace=True)
-
-    # Encode categorical columns
-
-    categorical_cols = [1, 2, 3]
-
-    for col in categorical_cols:
-
-        df[col] = (
-            feature_encoders[col]
-            .transform(df[col])
+    # --- Encode categorical columns ---
+    for col in ("protocol_type", "service", "flag"):
+        if col not in df.columns:
+            continue
+        enc   = feature_encoders[col]
+        known = set(enc.classes_)
+        df[col] = df[col].astype(str).apply(
+            lambda v: v if v in known else enc.classes_[0]
         )
+        df[col] = enc.transform(df[col])
 
-    # Scale
-
+    # --- Scale ---
     scaled_data = scaler.transform(df)
 
     # Prediction
@@ -117,22 +124,16 @@ def predict_attack(df):
 
 
 if __name__ == "__main__":
+    from data_preprocessing import FEATURE_NAMES
 
     sample = pd.read_csv(
         "data/raw/KDDTest+.txt",
-        header=None
+        header=None,
+        names=FEATURE_NAMES,
     )
 
-    sample = sample.head(1)
-
-    result = predict_attack(
-        sample
-    )
+    result = predict_attack(sample.head(1))
 
     print("\nPrediction Result\n")
-
     for key, value in result.items():
-
-        print(
-            f"{key}: {value}"
-        )
+        print(f"{key}: {value}")

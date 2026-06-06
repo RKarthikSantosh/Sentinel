@@ -8,6 +8,7 @@ sys.path.append(os.path.abspath('src'))
 from predict import predict_attack
 from report_generator import generate_report, report_to_pdf_bytes
 from live_monitor import capture_packets, capture_packets_simulated
+from data_preprocessing import FEATURE_NAMES
 
 st.set_page_config(page_title="Intrusion Detection SOC Dashboard", layout="wide")
 
@@ -35,7 +36,7 @@ if mode == "Mode 1: Historical CSV Log Analysis":
     
     if uploaded_file is not None:
         try:
-            df = pd.read_csv(uploaded_file, header=None)
+            df = pd.read_csv(uploaded_file, header=None, names=FEATURE_NAMES)
             st.success(f"Successfully loaded {len(df)} rows!")
             
             st.subheader("Data Preview")
