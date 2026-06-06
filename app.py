@@ -4,7 +4,7 @@ import sys
 import os
 
 # Add src to path so we can import our modules
-sys.path.append(os.path.abspath('src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 from predict import predict_attack
 from report_generator import generate_report, report_to_pdf_bytes
 from live_monitor import capture_packets, capture_packets_simulated
