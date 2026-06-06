@@ -41,8 +41,9 @@ if mode == "Mode 1: Historical CSV Log Analysis":
             st.subheader("Data Preview")
             st.dataframe(df.head())
             
-            if st.button("Analyze Top Row"):
-                sample = df.head(1)
+            row_index = st.number_input("Select row to analyze", min_value=0, max_value=len(df)-1, value=0, step=1)
+            if st.button("Analyze Row"):
+                sample = df.iloc[[row_index]]
                 with st.spinner("Analyzing with Machine Learning Model..."):
                     result = predict_attack(sample)
                 
