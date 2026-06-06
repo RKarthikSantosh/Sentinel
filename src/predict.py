@@ -78,6 +78,16 @@ def predict_attack(df):
         )
     )
 
+    # Do not score normal traffic as a threat
+    if attack_name.lower() == "normal":
+        return {
+            "attack_name": attack_name,
+            "attack_description": attack_description,
+            "confidence": round(confidence * 100, 2),
+            "risk_score": 0,
+            "threat_level": "None",
+        }
+
     risk_score, threat_level = (
         calculate_risk(
             confidence
