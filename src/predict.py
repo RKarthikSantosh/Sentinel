@@ -4,6 +4,7 @@ import joblib
 
 from attack_mapper import get_attack_description
 from risk_scoring import calculate_risk
+from calibration import TemperatureScaledRF  # noqa: F401 — needed for pickle
 
 
 # Load saved objects — prefer the dedicated Random Forest model
@@ -57,33 +58,21 @@ def predict_attack(df):
     scaled_data = scaler.transform(df)
 
     # Prediction
+    import numpy as np
 
-    prediction = model.predict(
-        scaled_data
-    )
+    prediction = model.predict(scaled_data)
+    probabilities = model.predict_proba(scaled_data)
 
-    probabilities = (
-        model.predict_proba(
-            scaled_data
-        )
-    )
+    # Confidence = calibrated probability of the top class
+    confidence = probabilities.max(axis=1)[0]
 
-    confidence = (
-        probabilities.max(axis=1)[0]
-    )
+    # Margin = gap between the top-1 and top-2 class probabilities.
+    sorted_probs = np.sort(probabilities[0])[::-1]
+    margin = sorted_probs[0] - sorted_probs[1] if len(sorted_probs) > 1 else 1.0
 
     # Decode attack
-
-    attack_name = (
-        target_encoder
-        .inverse_transform(prediction)
-    )[0]
-
-    attack_description = (
-        get_attack_description(
-            attack_name
-        )
-    )
+    attack_name = target_encoder.inverse_transform(prediction)[0]
+    attack_description = get_attack_description(attack_name)
 
     # Do not score normal traffic as a threat
     if attack_name.lower() == "normal":
@@ -95,31 +84,14 @@ def predict_attack(df):
             "threat_level": "None",
         }
 
-    risk_score, threat_level = (
-        calculate_risk(
-            confidence
-        )
-    )
+    risk_score, threat_level = calculate_risk(confidence, margin)
 
     return {
-
-        "attack_name":
-            attack_name,
-
-        "attack_description":
-            attack_description,
-
-        "confidence":
-            round(
-                confidence * 100,
-                2
-            ),
-
-        "risk_score":
-            risk_score,
-
-        "threat_level":
-            threat_level
+        "attack_name": attack_name,
+        "attack_description": attack_description,
+        "confidence": round(confidence * 100, 2),
+        "risk_score": risk_score,
+        "threat_level": threat_level,
     }
 
 
