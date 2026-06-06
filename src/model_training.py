@@ -102,7 +102,11 @@ joblib.dump(
 )
 
 print("\nBest Model Saved")
+print(f"Best Accuracy: {best_accuracy:.4f}")
 
-print(
-    f"Best Accuracy: {best_accuracy:.4f}"
-)
+# -----------------------------
+# Save Random Forest Explicitly
+# -----------------------------
+rf_model = models["Random Forest"]
+joblib.dump(rf_model, "models/rf_model.pkl")
+print("Random Forest model saved as rf_model.pkl")

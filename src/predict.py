@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import joblib
 
@@ -5,11 +6,10 @@ from attack_mapper import get_attack_description
 from risk_scoring import calculate_risk
 
 
-# Load saved objects
-
-model = joblib.load(
-    "models/intrusion_model.pkl"
-)
+# Load saved objects — prefer the dedicated Random Forest model
+_rf_path = "models/rf_model.pkl"
+_fallback_path = "models/intrusion_model.pkl"
+model = joblib.load(_rf_path if os.path.exists(_rf_path) else _fallback_path)
 
 scaler = joblib.load(
     "models/scaler.pkl"

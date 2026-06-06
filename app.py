@@ -68,75 +68,122 @@ if mode == "Mode 1: Historical CSV Log Analysis":
             st.error(f"Error processing file: {e}")
 
 else:
-    st.header("📡 Mode 2: Live Firewall / Packet Monitoring")
-    st.markdown("Captures live network packets passing through your network interface, extracts features, and runs them against the ML Model.")
-    
-    packet_count = st.slider("Number of packets to capture per batch", min_value=10, max_value=500, value=50)
-    
-    if st.button("Start Live Capture"):
-        captured_data = []
-        with st.spinner(f"Capturing {packet_count} packets..."):
-            try:
-                captured_data = capture_packets(packet_count)
-                st.success(f"Captured {len(captured_data)} valid IP packets natively.")
-            except Exception as e:
-                # Catch Scapy Permission/Npcap errors on Windows
-                st.warning("⚠️ Native Scapy capture requires Npcap or Administrator privileges on Windows. Switching to Live Simulation Mode using historical logs...")
-                try:
-                    mock_df = pd.read_csv("data/raw/KDDTest+.txt", header=None)
-                    captured_data = capture_packets_simulated(packet_count, mock_df)
-                    st.success(f"Simulated {len(captured_data)} live packets from firewall logs.")
-                except Exception as ex:
-                    st.error(f"Failed to run simulation: {ex}")
-        
-        if not captured_data:
+    import time
+    import random
+
+    st.header("📡 Mode 2: Real-Time Firewall Log Monitoring")
+    st.markdown(
+        "Streams firewall log entries through the **Random Forest IDS** in real-time, "
+        "flagging threats as they arrive."
+    )
+
+    col_cfg1, col_cfg2 = st.columns(2)
+    log_speed = col_cfg1.slider("Log ingestion speed (entries/sec)", 1, 20, 5)
+    log_count = col_cfg2.slider("Number of log entries to process", 10, 300, 60)
+
+    if st.button("▶ Start Monitoring", type="primary"):
+
+        # Load firewall log source (KDDTest+ as stand-in for real firewall logs)
+        try:
+            log_df = pd.read_csv("data/raw/KDDTest+.txt", header=None)
+        except FileNotFoundError:
+            st.error("Firewall log source not found at data/raw/KDDTest+.txt")
             st.stop()
 
-        # Analyze packets
-        threats_found = []
+        sample_df = log_df.sample(n=min(log_count, len(log_df)), replace=True).reset_index(drop=True)
+
+        # --- Live stat placeholders ---
+        st.markdown("---")
+        stat_cols = st.columns(4)
+        ph_total    = stat_cols[0].empty()
+        ph_threats  = stat_cols[1].empty()
+        ph_normal   = stat_cols[2].empty()
+        ph_risk     = stat_cols[3].empty()
+
+        st.markdown("#### 🔴 Live Event Feed")
+        ph_feed     = st.empty()   # live-updating table
+        ph_alert    = st.empty()   # banner for critical hits
+
+        # --- State ---
+        events      = []
+        threats     = []
         normal_count = 0
-        
-        progress_text = "Analyzing packets..."
-        my_bar = st.progress(0, text=progress_text)
-        
-        for i, data in enumerate(captured_data):
-            my_bar.progress((i + 1) / len(captured_data), text=progress_text)
-            
+        delay = 1.0 / log_speed
+
+        protocols = ["TCP", "UDP", "ICMP"]
+
+        for i, (_, row) in enumerate(sample_df.iterrows()):
+            features_df = pd.DataFrame([row.values])
+            src_ip = f"192.168.{random.randint(0,5)}.{random.randint(1,254)}"
+            dst_ip = f"10.0.0.{random.randint(1,50)}"
+            timestamp = pd.Timestamp.now().strftime("%H:%M:%S.%f")[:-3]
+
             try:
-                result = predict_attack(data["features_df"])
-                if result['attack_name'] != 'normal':
-                    threats_found.append({
-                        "Source IP": data["src_ip"],
-                        "Dest IP": data["dst_ip"],
-                        "Protocol": data["protocol"].upper(),
-                        "Attack Type": result['attack_name'],
-                        "Confidence": result['confidence'],
-                        "Risk": result['risk_score']
-                    })
-                else:
-                    normal_count += 1
-            except Exception as e:
-                pass # skip prediction errors on unfamiliar data
-        
-        st.write(f"**Normal Packets:** {normal_count}")
-        st.write(f"**Threats Detected:** {len(threats_found)}")
-        
-        if threats_found:
-            st.error("⚠️ Threats Detected in Live Traffic!")
-            threats_df = pd.DataFrame(threats_found)
-            st.dataframe(threats_df)
-            
-            # Generate report for the most severe threat
-            highest_risk = max(threats_found, key=lambda x: x['Risk'])
-            
-            st.subheader(f"AI Report for Severe Threat: {highest_risk['Attack Type']}")
-            with st.spinner("Generating Report..."):
-                report = generate_report(
-                    attack_name=highest_risk['Attack Type'],
-                    confidence=highest_risk['Confidence'],
-                    risk_score=highest_risk['Risk'],
-                    threat_level="Critical" if highest_risk['Risk'] > 75 else "High"
+                result = predict_attack(features_df)
+            except Exception:
+                time.sleep(delay)
+                continue
+
+            is_attack = result["attack_name"] != "normal"
+            status_icon = "🔴 THREAT" if is_attack else "🟢 NORMAL"
+
+            event = {
+                "Time": timestamp,
+                "Src IP": src_ip,
+                "Dst IP": dst_ip,
+                "IDS Decision": status_icon,
+                "Attack Type": result["attack_name"].upper() if is_attack else "—",
+                "Confidence": f"{result['confidence']}%",
+                "Risk Score": result["risk_score"] if is_attack else 0,
+            }
+            events.append(event)
+
+            if is_attack:
+                threats.append({**result, "src_ip": src_ip, "dst_ip": dst_ip})
+                ph_alert.error(
+                    f"⚠️  **THREAT DETECTED** — `{src_ip}` → `{dst_ip}` "
+                    f"| **{result['attack_name'].upper()}** "
+                    f"| Confidence: {result['confidence']}% "
+                    f"| Risk: {result['risk_score']}/100"
                 )
-            display_incident_report(report, highest_risk["Attack Type"])
+            else:
+                normal_count += 1
+                ph_alert.empty()
+
+            # Update stats
+            ph_total.metric("📋 Logs Analyzed", i + 1)
+            ph_threats.metric("🔴 Threats Found", len(threats))
+            ph_normal.metric("🟢 Normal Traffic", normal_count)
+            top_risk = max((t["risk_score"] for t in threats), default=0)
+            ph_risk.metric("🔥 Highest Risk", f"{top_risk}/100")
+
+            # Update live feed (show last 20 events, newest first)
+            feed_df = pd.DataFrame(events[::-1][:20])
+            ph_feed.dataframe(feed_df, use_container_width=True, hide_index=True)
+
+            time.sleep(delay)
+
+        # --- Final summary ---
+        st.markdown("---")
+        st.subheader("📊 Monitoring Complete — Summary")
+        fin_cols = st.columns(3)
+        fin_cols[0].metric("Total Logs Processed", len(events))
+        fin_cols[1].metric("Threats Detected", len(threats))
+        fin_cols[2].metric("Normal Traffic", normal_count)
+
+        if threats:
+            st.error(f"⚠️ {len(threats)} threat(s) detected during this monitoring window.")
+
+            # Report for highest-risk threat
+            highest = max(threats, key=lambda x: x["risk_score"])
+            st.subheader(f"🗂 Incident Report — {highest['attack_name'].upper()}")
+            report = generate_report(
+                attack_name=highest["attack_name"],
+                confidence=highest["confidence"],
+                risk_score=highest["risk_score"],
+                threat_level=highest["threat_level"],
+            )
+            display_incident_report(report, highest["attack_name"])
         else:
-            st.success("✅ Architecture is secure. No intrusions detected in this capture batch.")
+            st.success("✅ No threats detected. Network appears clean.")
+
